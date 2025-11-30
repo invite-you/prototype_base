@@ -8,13 +8,13 @@ import argparse
 import json
 import importlib.util
 import math
-import time
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Sequence
 
 if TYPE_CHECKING:
     from sentence_transformers import SentenceTransformer
+
+from rag.logging_utils import log_phase_context
 
 # 전역 설정값
 MODEL_NAME = "MongoDB/mdbr-leaf-ir"
@@ -22,26 +22,6 @@ CHUNK_SIZE = 800
 CHUNK_OVERLAP = 200
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".markdown"}
 DEFAULT_SIMILARITY_THRESHOLD = 0.3
-
-
-class StepTimer:
-    """단계별 시작/종료 시각과 소요 시간을 기록하는 컨텍스트 매니저."""
-
-    def __init__(self, label: str):
-        self.label = label
-        self.start = 0.0
-
-    def __enter__(self):
-        self.start = time.perf_counter()
-        now = datetime.now().isoformat(timespec="seconds")
-        print(f"[STEP] {self.label} 시작 | {now}")
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        end = time.perf_counter()
-        now = datetime.now().isoformat(timespec="seconds")
-        elapsed = end - self.start
-        print(f"[STEP] {self.label} 종료 | {now} | 소요 {elapsed:.2f}s")
 
 
 def collect_text_files(root_dir: Path) -> List[Path]:
@@ -118,28 +98,28 @@ def cluster_embeddings(embeddings: List[List[float]], threshold: float) -> List[
 
 
 def run_pipeline(input_dir: Path, output_file: Path, similarity_threshold: float, chunk_size: int, chunk_overlap: int) -> None:
-    with StepTimer("모델 로드"):
+    with log_phase_context("모델 로드"):
         model = load_embedding_model(MODEL_NAME)
 
-    with StepTimer("파일 로딩"):
+    with log_phase_context("파일 로딩"):
         files = collect_text_files(input_dir)
         texts = {path: read_text(path) for path in files}
 
-    with StepTimer("청킹"):
+    with log_phase_context("청킹"):
         chunk_records: List[Dict[str, str]] = []
         for path, text in texts.items():
             chunks = chunk_text(text, chunk_size, chunk_overlap)
             for idx, chunk in enumerate(chunks):
                 chunk_records.append({"file": str(path), "chunk_index": idx, "text": chunk})
 
-    with StepTimer("임베딩"):
+    with log_phase_context("임베딩"):
         texts_for_embedding = [record["text"] for record in chunk_records]
         embeddings = embed_texts(model, texts_for_embedding)
 
-    with StepTimer("클러스터링"):
+    with log_phase_context("클러스터링"):
         clusters = cluster_embeddings(embeddings, similarity_threshold)
 
-    with StepTimer("출력"):
+    with log_phase_context("출력"):
         output = {
             "model": MODEL_NAME,
             "chunk_size": chunk_size,

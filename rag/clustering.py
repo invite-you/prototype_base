@@ -2,39 +2,17 @@
 
 import json
 import math
-import time
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Set, Tuple
+
+from rag.logging_utils import log_phase_context
 
 # 전역 설정값
 MODEL_NAME = "MongoDB/mdbr-leaf-ir"
 DEFAULT_SIM_THRESHOLD = 0.75
 DEFAULT_JSON_PATH = Path("cluster_result.json")
 DEFAULT_MD_PATH = Path("cluster_result.md")
-
-
-class StepTimer:
-    """단계별 시작/종료 시각과 소요 시간을 기록하는 컨텍스트 매니저."""
-
-    def __init__(self, label: str):
-        self.label = label
-        self.start = 0.0
-
-    def __enter__(self):
-        self.start = time.perf_counter()
-        now = datetime.now().isoformat(timespec="seconds")
-        print(f"[STEP] {self.label} 시작 | {now}")
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        end = time.perf_counter()
-        now = datetime.now().isoformat(timespec="seconds")
-        elapsed = end - self.start
-        print(f"[STEP] {self.label} 종료 | {now} | 소요 {elapsed:.2f}s")
-
-
 @dataclass
 class ClusterMember:
     index: int
@@ -138,7 +116,7 @@ def load_embedding_model(model_name: str = MODEL_NAME):
     from sentence_transformers import SentenceTransformer
     from huggingface_hub import model_info
 
-    with StepTimer("임베딩 모델 로드"):
+    with log_phase_context("임베딩 모델 로드"):
         model = SentenceTransformer(model_name)
         try:
             info = model_info(model_name)
@@ -152,7 +130,7 @@ def load_embedding_model(model_name: str = MODEL_NAME):
 
 def embed_chunks(model, chunks: Sequence) -> List[List[float]]:
     texts = [getattr(chunk, "text", "") for chunk in chunks]
-    with StepTimer("청크 임베딩 계산"):
+    with log_phase_context("청크 임베딩 계산"):
         vectors = model.encode(texts, convert_to_numpy=True, normalize_embeddings=True)
     return [vec.tolist() for vec in vectors]
 
