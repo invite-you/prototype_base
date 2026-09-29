@@ -1,0 +1,18 @@
+name: export-p29-kaggle-notebook
+on:
+  push:
+    branches:
+      - chatgpt-p29-kaggle-20260930-v1
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: P29_Kaggle_OneClick_DualHead
+          path: |
+            P29_Kaggle_OneClick_DualHead.ipynb
+            P29_Kaggle_OneClick_README.md
+          if-no-files-found: error
+          compression-level: 9
